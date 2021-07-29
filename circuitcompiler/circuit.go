@@ -46,6 +46,7 @@ func indexInArray(arr []string, e string) int {
 	}
 	return -1
 }
+
 func isValue(a string) (bool, int) {
 	v, err := strconv.Atoi(a)
 	if err != nil {
@@ -53,30 +54,43 @@ func isValue(a string) (bool, int) {
 	}
 	return true, v
 }
-func insertVar(arr []*big.Int, signals []string, v string, used map[string]bool) ([]*big.Int, map[string]bool) {
+
+func insertVar(arr []*big.Int, signals []string, v string,
+	used map[string]bool) ([]*big.Int, map[string]bool) {
+
 	isVal, value := isValue(v)
 	valueBigInt := big.NewInt(int64(value))
+
 	if isVal {
 		arr[0] = new(big.Int).Add(arr[0], valueBigInt)
 	} else {
 		if !used[v] {
 			panic(errors.New("using variable before it's set"))
 		}
-		arr[indexInArray(signals, v)] = new(big.Int).Add(arr[indexInArray(signals, v)], big.NewInt(int64(1)))
+
+		arr[indexInArray(signals, v)] = new(big.Int).Add(
+			arr[indexInArray(signals, v)], big.NewInt(int64(1)))
 	}
+
 	return arr, used
 }
-func insertVarNeg(arr []*big.Int, signals []string, v string, used map[string]bool) ([]*big.Int, map[string]bool) {
+func insertVarNeg(arr []*big.Int, signals []string, v string,
+	used map[string]bool) ([]*big.Int, map[string]bool) {
+
 	isVal, value := isValue(v)
 	valueBigInt := big.NewInt(int64(value))
+
 	if isVal {
 		arr[0] = new(big.Int).Add(arr[0], valueBigInt)
 	} else {
 		if !used[v] {
 			panic(errors.New("using variable before it's set"))
 		}
-		arr[indexInArray(signals, v)] = new(big.Int).Add(arr[indexInArray(signals, v)], big.NewInt(int64(-1)))
+
+		arr[indexInArray(signals, v)] = new(big.Int).Add(
+			arr[indexInArray(signals, v)], big.NewInt(int64(-1)))
 	}
+
 	return arr, used
 }
 
@@ -100,31 +114,46 @@ func (circ *Circuit) GenerateR1CS() ([][]*big.Int, [][]*big.Int, [][]*big.Int) {
 		// }
 		used[constraint.Out] = true
 		if constraint.Op == "in" {
-			for i := 0; i <= len(circ.PublicInputs); i++ {
-				aConstraint[indexInArray(circ.Signals, constraint.Out)] = new(big.Int).Add(aConstraint[indexInArray(circ.Signals, constraint.Out)], big.NewInt(int64(1)))
-				aConstraint, used = insertVar(aConstraint, circ.Signals, constraint.Out, used)
+			for i := 0; i <= len(circ.PublicInputs); i += 1 {
+				aConstraint[indexInArray(circ.Signals, constraint.Out)] =
+					new(big.Int).Add(aConstraint[indexInArray(circ.Signals, constraint.Out)], big.NewInt(int64(1)))
+
+				aConstraint, used = insertVar(aConstraint, circ.Signals,
+					constraint.Out, used)
 				bConstraint[0] = big.NewInt(int64(1))
 			}
-			continue
 
+			continue
 		} else if constraint.Op == "+" {
-			cConstraint[indexInArray(circ.Signals, constraint.Out)] = big.NewInt(int64(1))
-			aConstraint, used = insertVar(aConstraint, circ.Signals, constraint.V1, used)
-			aConstraint, used = insertVar(aConstraint, circ.Signals, constraint.V2, used)
+			cConstraint[indexInArray(circ.Signals, constraint.Out)] =
+				big.NewInt(int64(1))
+			aConstraint, used = insertVar(aConstraint, circ.Signals,
+				constraint.V1, used)
+			aConstraint, used = insertVar(aConstraint, circ.Signals,
+				constraint.V2, used)
 			bConstraint[0] = big.NewInt(int64(1))
 		} else if constraint.Op == "-" {
-			cConstraint[indexInArray(circ.Signals, constraint.Out)] = big.NewInt(int64(1))
-			aConstraint, used = insertVarNeg(aConstraint, circ.Signals, constraint.V1, used)
-			aConstraint, used = insertVarNeg(aConstraint, circ.Signals, constraint.V2, used)
+			cConstraint[indexInArray(circ.Signals, constraint.Out)] =
+				big.NewInt(int64(1))
+			aConstraint, used = insertVarNeg(aConstraint, circ.Signals,
+				constraint.V1, used)
+			aConstraint, used = insertVarNeg(aConstraint, circ.Signals,
+				constraint.V2, used)
 			bConstraint[0] = big.NewInt(int64(1))
 		} else if constraint.Op == "*" {
-			cConstraint[indexInArray(circ.Signals, constraint.Out)] = big.NewInt(int64(1))
-			aConstraint, used = insertVar(aConstraint, circ.Signals, constraint.V1, used)
-			bConstraint, used = insertVar(bConstraint, circ.Signals, constraint.V2, used)
+			cConstraint[indexInArray(circ.Signals, constraint.Out)] =
+				big.NewInt(int64(1))
+			aConstraint, used = insertVar(aConstraint, circ.Signals,
+				constraint.V1, used)
+			bConstraint, used = insertVar(bConstraint, circ.Signals,
+				constraint.V2, used)
 		} else if constraint.Op == "/" {
-			cConstraint, used = insertVar(cConstraint, circ.Signals, constraint.V1, used)
-			cConstraint[indexInArray(circ.Signals, constraint.Out)] = big.NewInt(int64(1))
-			bConstraint, used = insertVar(bConstraint, circ.Signals, constraint.V2, used)
+			cConstraint, used = insertVar(cConstraint, circ.Signals,
+				constraint.V1, used)
+			cConstraint[indexInArray(circ.Signals, constraint.Out)] =
+				big.NewInt(int64(1))
+			bConstraint, used = insertVar(bConstraint, circ.Signals,
+				constraint.V2, used)
 		}
 
 		a = append(a, aConstraint)
@@ -155,32 +184,50 @@ type Inputs struct {
 
 // CalculateWitness calculates the Witness of a Circuit based on the given inputs
 // witness = [ one, output, publicInputs, privateInputs, ...]
-func (circ *Circuit) CalculateWitness(privateInputs []*big.Int, publicInputs []*big.Int) ([]*big.Int, error) {
+func (circ *Circuit) CalculateWitness(
+	privateInputs []*big.Int, publicInputs []*big.Int) ([]*big.Int, error) {
+
 	if len(privateInputs) != len(circ.PrivateInputs) {
-		return []*big.Int{}, errors.New("given privateInputs != circuit.PublicInputs")
+		return []*big.Int{},
+			errors.New("given privateInputs != circuit.PublicInputs")
 	}
+
 	if len(publicInputs) != len(circ.PublicInputs) {
-		return []*big.Int{}, errors.New("given publicInputs != circuit.PublicInputs")
+		return []*big.Int{},
+			errors.New("given publicInputs != circuit.PublicInputs")
 	}
+
 	w := r1csqap.ArrayOfBigZeros(len(circ.Signals))
 	w[0] = big.NewInt(int64(1))
+
 	for i, input := range publicInputs {
 		w[i+1] = input
 	}
+
 	for i, input := range privateInputs {
 		w[i+len(publicInputs)+1] = input
 	}
+
 	for _, constraint := range circ.Constraints {
 		if constraint.Op == "in" {
 		} else if constraint.Op == "+" {
-			w[indexInArray(circ.Signals, constraint.Out)] = new(big.Int).Add(grabVar(circ.Signals, w, constraint.V1), grabVar(circ.Signals, w, constraint.V2))
+			w[indexInArray(circ.Signals, constraint.Out)] = new(big.Int).
+				Add(grabVar(circ.Signals, w, constraint.V1),
+					grabVar(circ.Signals, w, constraint.V2))
 		} else if constraint.Op == "-" {
-			w[indexInArray(circ.Signals, constraint.Out)] = new(big.Int).Sub(grabVar(circ.Signals, w, constraint.V1), grabVar(circ.Signals, w, constraint.V2))
+			w[indexInArray(circ.Signals, constraint.Out)] = new(big.Int).
+				Sub(grabVar(circ.Signals, w, constraint.V1),
+					grabVar(circ.Signals, w, constraint.V2))
 		} else if constraint.Op == "*" {
-			w[indexInArray(circ.Signals, constraint.Out)] = new(big.Int).Mul(grabVar(circ.Signals, w, constraint.V1), grabVar(circ.Signals, w, constraint.V2))
+			w[indexInArray(circ.Signals, constraint.Out)] = new(big.Int).
+				Mul(grabVar(circ.Signals, w, constraint.V1),
+					grabVar(circ.Signals, w, constraint.V2))
 		} else if constraint.Op == "/" {
-			w[indexInArray(circ.Signals, constraint.Out)] = new(big.Int).Div(grabVar(circ.Signals, w, constraint.V1), grabVar(circ.Signals, w, constraint.V2))
+			w[indexInArray(circ.Signals, constraint.Out)] = new(big.Int).
+				Div(grabVar(circ.Signals, w, constraint.V1),
+					grabVar(circ.Signals, w, constraint.V2))
 		}
 	}
+
 	return w, nil
 }

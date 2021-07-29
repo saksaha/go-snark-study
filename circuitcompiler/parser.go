@@ -220,16 +220,19 @@ func (p *Parser) Parse() (*Circuit, error) {
 	currCircuit := ""
 	for {
 		constraint, err := p.parseLine()
+
 		if err != nil {
 			break
 		}
+
 		if constraint.Literal == "func" {
 			// the name of the func is in constraint.V1
 			// check if the name of func is main
 			if constraint.V1 != "main" {
 				currCircuit = constraint.V1
 				circuits[currCircuit] = &Circuit{}
-				circuits[currCircuit].Constraints = append(circuits[currCircuit].Constraints, *constraint)
+				circuits[currCircuit].Constraints = append(
+					circuits[currCircuit].Constraints, *constraint)
 				continue
 			}
 			currCircuit = "main"
@@ -243,47 +246,62 @@ func (p *Parser) Parse() (*Circuit, error) {
 					Op:  "in",
 					Out: in,
 				}
-				circuits[currCircuit].Constraints = append(circuits[currCircuit].Constraints, *newConstr)
+				circuits[currCircuit].Constraints = append(
+					circuits[currCircuit].Constraints, *newConstr)
 				nInputs++
-				circuits[currCircuit].Signals = addToArrayIfNotExist(circuits[currCircuit].Signals, in)
+				circuits[currCircuit].Signals = addToArrayIfNotExist(
+					circuits[currCircuit].Signals, in)
 				circuits[currCircuit].NPublic++
 			}
+
 			for _, in := range constraint.PrivateInputs {
 				newConstr := &Constraint{
 					Op:  "in",
 					Out: in,
 				}
-				circuits[currCircuit].Constraints = append(circuits[currCircuit].Constraints, *newConstr)
+				circuits[currCircuit].Constraints = append(
+					circuits[currCircuit].Constraints, *newConstr)
 				nInputs++
-				circuits[currCircuit].Signals = addToArrayIfNotExist(circuits[currCircuit].Signals, in)
+				circuits[currCircuit].Signals = addToArrayIfNotExist(
+					circuits[currCircuit].Signals, in)
 			}
+
 			circuits[currCircuit].PublicInputs = constraint.PublicInputs
 			circuits[currCircuit].PrivateInputs = constraint.PrivateInputs
 			continue
 		}
+
 		if constraint.Literal == "equals" {
 			constr1 := &Constraint{
-				Op:      "*",
-				V1:      constraint.V2,
-				V2:      "1",
-				Out:     constraint.V1,
-				Literal: "equals(" + constraint.V1 + ", " + constraint.V2 + "): " + constraint.V1 + "==" + constraint.V2 + " * 1",
+				Op:  "*",
+				V1:  constraint.V2,
+				V2:  "1",
+				Out: constraint.V1,
+				Literal: "equals(" + constraint.V1 + ", " + constraint.V2 + "): " +
+					constraint.V1 + "==" + constraint.V2 + " * 1",
 			}
-			circuits[currCircuit].Constraints = append(circuits[currCircuit].Constraints, *constr1)
+
+			circuits[currCircuit].Constraints = append(
+				circuits[currCircuit].Constraints, *constr1)
 			constr2 := &Constraint{
-				Op:      "*",
-				V1:      constraint.V1,
-				V2:      "1",
-				Out:     constraint.V2,
-				Literal: "equals(" + constraint.V1 + ", " + constraint.V2 + "): " + constraint.V2 + "==" + constraint.V1 + " * 1",
+				Op:  "*",
+				V1:  constraint.V1,
+				V2:  "1",
+				Out: constraint.V2,
+				Literal: "equals(" + constraint.V1 + ", " + constraint.V2 + "): " +
+					constraint.V2 + "==" + constraint.V1 + " * 1",
 			}
-			circuits[currCircuit].Constraints = append(circuits[currCircuit].Constraints, *constr2)
+
+			circuits[currCircuit].Constraints = append(
+				circuits[currCircuit].Constraints, *constr2)
 			continue
 		}
+
 		if constraint.Literal == "return" {
 			currCircuit = ""
 			continue
 		}
+
 		if constraint.Literal == "call" {
 			callsCountStr := strconv.Itoa(callsCount)
 			// for each of the constraints of the called circuit
@@ -291,13 +309,18 @@ func (p *Parser) Parse() (*Circuit, error) {
 			signalMap := make(map[string]string)
 			for i, s := range constraint.PrivateInputs {
 				// signalMap[s] = circuits[constraint.Op].Constraints[0].PrivateInputs[i]
-				signalMap[circuits[constraint.Op].Constraints[0].PrivateInputs[i]+callsCountStr] = s
+				signalMap[circuits[constraint.Op].
+					Constraints[0].PrivateInputs[i] + callsCountStr] = s
 			}
-			// add out to map
-			signalMap[circuits[constraint.Op].Constraints[len(circuits[constraint.Op].Constraints)-1].Out+callsCountStr] = constraint.Out
 
-			for i := 1; i < len(circuits[constraint.Op].Constraints); i++ {
+			// add out to map
+			lenConstraints := len(circuits[constraint.Op].Constraints)
+			signalMap[circuits[constraint.Op].
+				Constraints[lenConstraints - 1].Out + callsCountStr] = constraint.Out
+
+			for i := 1; i < len(circuits[constraint.Op].Constraints); i += 1 {
 				c := circuits[constraint.Op].Constraints[i]
+
 				// add constraint, puting unique names to vars
 				nc := &Constraint{
 					Op:      c.Op,
@@ -306,45 +329,64 @@ func (p *Parser) Parse() (*Circuit, error) {
 					Out:     subsIfInMap(c.Out+callsCountStr, signalMap),
 					Literal: "",
 				}
-				nc.Literal = nc.Out + "=" + nc.V1 + nc.Op + nc.V2
-				circuits[currCircuit].Constraints = append(circuits[currCircuit].Constraints, *nc)
-			}
-			for _, s := range circuits[constraint.Op].Signals {
-				circuits[currCircuit].Signals = addToArrayIfNotExist(circuits[currCircuit].Signals, subsIfInMap(s+callsCountStr, signalMap))
-			}
-			callsCount++
-			continue
 
+				nc.Literal = nc.Out + "=" + nc.V1 + nc.Op + nc.V2
+				circuits[currCircuit].Constraints = append(
+					circuits[currCircuit].Constraints, *nc)
+			}
+
+			for _, s := range circuits[constraint.Op].Signals {
+				circuits[currCircuit].Signals = addToArrayIfNotExist(
+					circuits[currCircuit].Signals,
+					subsIfInMap(s + callsCountStr, signalMap))
+			}
+
+			callsCount += 1
+			continue
 		}
+
 		if constraint.Literal == "import" {
 			circuitFile, err := os.Open(constraint.Out)
+
 			if err != nil {
 				panic(errors.New("imported path error: " + constraint.Out))
 			}
+
 			parser := NewParser(bufio.NewReader(circuitFile))
 			_, err = parser.Parse() // this will add the imported file funcs into the `circuits` map
 			continue
 		}
 
-		circuits[currCircuit].Constraints = append(circuits[currCircuit].Constraints, *constraint)
+		circuits[currCircuit].Constraints = append(
+			circuits[currCircuit].Constraints, *constraint)
 		isVal, _ := isValue(constraint.V1)
+
 		if !isVal {
-			circuits[currCircuit].Signals = addToArrayIfNotExist(circuits[currCircuit].Signals, constraint.V1)
-		}
-		isVal, _ = isValue(constraint.V2)
-		if !isVal {
-			circuits[currCircuit].Signals = addToArrayIfNotExist(circuits[currCircuit].Signals, constraint.V2)
+			circuits[currCircuit].Signals = addToArrayIfNotExist(
+				circuits[currCircuit].Signals, constraint.V1)
 		}
 
-		circuits[currCircuit].Signals = addToArrayIfNotExist(circuits[currCircuit].Signals, constraint.Out)
+		isVal, _ = isValue(constraint.V2)
+
+		if !isVal {
+			circuits[currCircuit].Signals = addToArrayIfNotExist(
+				circuits[currCircuit].Signals, constraint.V2)
+		}
+
+		circuits[currCircuit].Signals = addToArrayIfNotExist(
+			circuits[currCircuit].Signals, constraint.Out)
 	}
+
 	circuits["main"].NVars = len(circuits["main"].Signals)
 	circuits["main"].NSignals = len(circuits["main"].Signals)
+
 	if mainExist == false {
 		return circuits["main"], errors.New("No 'main' func declared")
 	}
+
 	return circuits["main"], nil
 }
+
 func copyArray(in []string) []string { // tmp
 	var out []string
 	for _, e := range in {

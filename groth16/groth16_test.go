@@ -26,12 +26,15 @@ func TestGroth16MinimalFlow(t *testing.T) {
 		equals(s1, s5)
 		out = 1 * 1
 	`
-	fmt.Print("\ncode of the circuit:")
+	fmt.Print("\ncode of the circuit:\n")
+	fmt.Printf("code: %s\n", code);
 
 	// parse the code
 	parser := circuitcompiler.NewParser(strings.NewReader(code))
 	circuit, err := parser.Parse()
 	assert.Nil(t, err)
+
+	fmt.Printf("circuit: %+v\n", circuit);
 
 	b3 := big.NewInt(int64(3))
 	privateInputs := []*big.Int{b3}
@@ -53,7 +56,11 @@ func TestGroth16MinimalFlow(t *testing.T) {
 	// R1CS to QAP
 	// TODO zxQAP is not used and is an old impl, TODO remove
 	alphas, betas, gammas, _ := Utils.PF.R1CSToQAP(a, b, c)
-	fmt.Println("qap")
+	fmt.Println("\nqap")
+	fmt.Printf("alaphs: %s\n", alphas);
+	fmt.Printf("betas: %s\n", betas);
+	fmt.Printf("gammas: %s\n", gammas);
+
 	assert.Equal(t, 8, len(alphas))
 	assert.Equal(t, 8, len(alphas))
 	assert.Equal(t, 8, len(alphas))
