@@ -2,9 +2,9 @@ package r1csqap
 
 import (
 	"bytes"
-	"math/big"
-
+	"fmt"
 	"github.com/arnaucube/go-snark-study/fields"
+	"math/big"
 )
 
 // Transpose transposes the *big.Int matrix
@@ -48,6 +48,8 @@ type PolynomialField struct {
 
 // NewPolynomialField creates a new PolynomialField with the given FiniteField
 func NewPolynomialField(f fields.Fq) PolynomialField {
+	fmt.Printf("NewPolynomialField(): f: %s\n", f)
+
 	return PolynomialField{
 		f,
 	}
@@ -56,6 +58,7 @@ func NewPolynomialField(f fields.Fq) PolynomialField {
 // Mul multiplies two polinomials over the Finite Field
 func (pf PolynomialField) Mul(a, b []*big.Int) []*big.Int {
 	r := ArrayOfBigZeros(len(a) + len(b) - 1)
+
 	for i := 0; i < len(a); i++ {
 		for j := 0; j < len(b); j++ {
 			r[i+j] = pf.F.Add(
@@ -63,6 +66,7 @@ func (pf PolynomialField) Mul(a, b []*big.Int) []*big.Int {
 				pf.F.Mul(a[i], b[j]))
 		}
 	}
+
 	return r
 }
 
@@ -93,12 +97,15 @@ func max(a, b int) int {
 // Add adds two polinomials over the Finite Field
 func (pf PolynomialField) Add(a, b []*big.Int) []*big.Int {
 	r := ArrayOfBigZeros(max(len(a), len(b)))
+
 	for i := 0; i < len(a); i++ {
 		r[i] = pf.F.Add(r[i], a[i])
 	}
+
 	for i := 0; i < len(b); i++ {
 		r[i] = pf.F.Add(r[i], b[i])
 	}
+
 	return r
 }
 
@@ -126,16 +133,24 @@ func (pf PolynomialField) Eval(v []*big.Int, x *big.Int) *big.Int {
 }
 
 // NewPolZeroAt generates a new polynomial that has value zero at the given value
-func (pf PolynomialField) NewPolZeroAt(pointPos, totalPoints int, height *big.Int) []*big.Int {
+func (pf PolynomialField) NewPolZeroAt(pointPos, totalPoints int,
+	height *big.Int) []*big.Int {
+
 	fac := 1
-	for i := 1; i < totalPoints+1; i++ {
+	for i := 1; i < totalPoints+1; i += 1 {
 		if i != pointPos {
 			fac = fac * (pointPos - i)
 		}
 	}
+
 	facBig := big.NewInt(int64(fac))
 	hf := pf.F.Div(height, facBig)
 	r := []*big.Int{hf}
+
+	// fmt.Printf("NewPolZeroAt(): pointPos: %d, totalPoints: %d, height: %s, " +
+	// 	"facBig: %s, hf: %s\n",
+		// pointPos, totalPoints, height, facBig, hf)
+
 	for i := 1; i < totalPoints+1; i++ {
 		if i != pointPos {
 			ineg := big.NewInt(int64(-i))
@@ -143,37 +158,50 @@ func (pf PolynomialField) NewPolZeroAt(pointPos, totalPoints int, height *big.In
 			r = pf.Mul(r, []*big.Int{ineg, b1})
 		}
 	}
+
 	return r
 }
 
 // LagrangeInterpolation performs the Lagrange Interpolation / Lagrange Polynomials operation
 func (pf PolynomialField) LagrangeInterpolation(v []*big.Int) []*big.Int {
+
 	// https://en.wikipedia.org/wiki/Lagrange_polynomial
 	var r []*big.Int
 	for i := 0; i < len(v); i++ {
 		r = pf.Add(r, pf.NewPolZeroAt(i+1, len(v), v[i]))
+		// fmt.Printf("LagrangeInterpolation(): r: %s, v[%d]: %s\n", r, i, v[i])
 	}
-	//
+
 	return r
 }
 
 // R1CSToQAP converts the R1CS values to the QAP values
-func (pf PolynomialField) R1CSToQAP(a, b, c [][]*big.Int) ([][]*big.Int, [][]*big.Int, [][]*big.Int, []*big.Int) {
+func (pf PolynomialField) R1CSToQAP(a, b, c [][]*big.Int) (
+	[][]*big.Int, [][]*big.Int, [][]*big.Int, []*big.Int) {
+
 	aT := Transpose(a)
 	bT := Transpose(b)
 	cT := Transpose(c)
+
+	fmt.Printf("\nR1CSToQAP(): aT: %s\n", aT)
+	fmt.Printf("\nR1CSToQAP(): bT: %s\n", bT)
+	fmt.Printf("\nR1CSToQAP(): cT: %s\n", cT)
+
 	var alphas [][]*big.Int
 	for i := 0; i < len(aT); i++ {
 		alphas = append(alphas, pf.LagrangeInterpolation(aT[i]))
 	}
+
 	var betas [][]*big.Int
 	for i := 0; i < len(bT); i++ {
 		betas = append(betas, pf.LagrangeInterpolation(bT[i]))
 	}
+
 	var gammas [][]*big.Int
 	for i := 0; i < len(cT); i++ {
 		gammas = append(gammas, pf.LagrangeInterpolation(cT[i]))
 	}
+
 	z := []*big.Int{big.NewInt(int64(1))}
 	for i := 1; i < len(alphas)-1; i++ {
 		z = pf.Mul(
@@ -184,6 +212,7 @@ func (pf PolynomialField) R1CSToQAP(a, b, c [][]*big.Int) ([][]*big.Int, [][]*bi
 				big.NewInt(int64(1)),
 			})
 	}
+
 	return alphas, betas, gammas, z
 }
 

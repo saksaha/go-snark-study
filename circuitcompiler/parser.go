@@ -61,15 +61,19 @@ func (p *Parser) parseLine() (*Constraint, error) {
 	*/
 	c := &Constraint{}
 	tok, lit := p.scanIgnoreWhitespace()
+	fmt.Printf("parseLine(): lit: %s\n", lit)
+
 	c.Out = lit
 	c.Literal += lit
 
 	if c.Literal == "func" {
 		// format: `func name(in):`
 		line, err := p.s.r.ReadString(':')
+
 		if err != nil {
 			return c, err
 		}
+
 		// get func name
 		fName := strings.Split(line, "(")[0]
 		fName = strings.Replace(fName, " ", "", -1)
@@ -98,6 +102,7 @@ func (p *Parser) parseLine() (*Constraint, error) {
 		}
 		return c, nil
 	}
+
 	if c.Literal == "equals" {
 		// format: `equals(a, b)`
 		line, err := p.s.r.ReadString(')')
@@ -113,11 +118,13 @@ func (p *Parser) parseLine() (*Constraint, error) {
 		c.V2 = params[1]
 		return c, nil
 	}
+
 	if c.Literal == "return" {
 		_, varToReturn := p.scanIgnoreWhitespace()
 		c.Out = varToReturn
 		return c, nil
 	}
+
 	if c.Literal == "import" {
 		line, err := p.s.r.ReadString('\n')
 		if err != nil {
@@ -167,15 +174,18 @@ func (p *Parser) parseLine() (*Constraint, error) {
 	if lit == "(" {
 		panic(errors.New("using not declared function"))
 	}
+
 	c.Op = lit
 	c.Literal += lit
 	// v2
 	_, lit = p.scanIgnoreWhitespace()
 	c.V2 = lit
 	c.Literal += lit
+
 	if tok == EOF {
 		return nil, errors.New("eof in parseline")
 	}
+
 	return c, nil
 }
 
@@ -218,8 +228,10 @@ func (p *Parser) Parse() (*Circuit, error) {
 	circuits["main"].Signals = append(circuits["main"].Signals, "one")
 	nInputs := 0
 	currCircuit := ""
+
 	for {
 		constraint, err := p.parseLine()
+		fmt.Printf("Parse(): constraint: %+v\n", constraint)
 
 		if err != nil {
 			break
@@ -310,13 +322,13 @@ func (p *Parser) Parse() (*Circuit, error) {
 			for i, s := range constraint.PrivateInputs {
 				// signalMap[s] = circuits[constraint.Op].Constraints[0].PrivateInputs[i]
 				signalMap[circuits[constraint.Op].
-					Constraints[0].PrivateInputs[i] + callsCountStr] = s
+					Constraints[0].PrivateInputs[i]+callsCountStr] = s
 			}
 
 			// add out to map
 			lenConstraints := len(circuits[constraint.Op].Constraints)
 			signalMap[circuits[constraint.Op].
-				Constraints[lenConstraints - 1].Out + callsCountStr] = constraint.Out
+				Constraints[lenConstraints-1].Out+callsCountStr] = constraint.Out
 
 			for i := 1; i < len(circuits[constraint.Op].Constraints); i += 1 {
 				c := circuits[constraint.Op].Constraints[i]
@@ -338,7 +350,7 @@ func (p *Parser) Parse() (*Circuit, error) {
 			for _, s := range circuits[constraint.Op].Signals {
 				circuits[currCircuit].Signals = addToArrayIfNotExist(
 					circuits[currCircuit].Signals,
-					subsIfInMap(s + callsCountStr, signalMap))
+					subsIfInMap(s+callsCountStr, signalMap))
 			}
 
 			callsCount += 1

@@ -11,6 +11,7 @@ import (
 	"github.com/arnaucube/go-snark-study/circuitcompiler"
 	"github.com/arnaucube/go-snark-study/r1csqap"
 	"github.com/stretchr/testify/assert"
+
 )
 
 func TestGroth16MinimalFlow(t *testing.T) {
@@ -27,23 +28,27 @@ func TestGroth16MinimalFlow(t *testing.T) {
 		out = 1 * 1
 	`
 	fmt.Print("\ncode of the circuit:\n")
-	fmt.Printf("code: %s\n", code);
+	fmt.Printf("code: %s\n", code)
 
 	// parse the code
 	parser := circuitcompiler.NewParser(strings.NewReader(code))
 	circuit, err := parser.Parse()
 	assert.Nil(t, err)
 
-	fmt.Printf("circuit: %+v\n", circuit);
+	fmt.Printf("\ncircuit: %+v\n", circuit)
 
 	b3 := big.NewInt(int64(3))
 	privateInputs := []*big.Int{b3}
 	b35 := big.NewInt(int64(35))
 	publicSignals := []*big.Int{b35}
 
+	fmt.Printf("\nb3 (private): %s, b35 (public): %s\n", b3, b35)
+
 	// wittness
 	w, err := circuit.CalculateWitness(privateInputs, publicSignals)
 	assert.Nil(t, err)
+
+	fmt.Printf("\nwitness, w: %s\n", w)
 
 	// code to R1CS
 	fmt.Println("\ngenerating R1CS from code")
@@ -56,15 +61,20 @@ func TestGroth16MinimalFlow(t *testing.T) {
 	// R1CS to QAP
 	// TODO zxQAP is not used and is an old impl, TODO remove
 	alphas, betas, gammas, _ := Utils.PF.R1CSToQAP(a, b, c)
-	fmt.Println("\nqap")
-	fmt.Printf("alaphs: %s\n", alphas);
-	fmt.Printf("betas: %s\n", betas);
-	fmt.Printf("gammas: %s\n", gammas);
+
+	fmt.Println("\nqap: ")
+	fmt.Printf("\nalphas: %s\n", alphas)
+	fmt.Printf("\nbetas: %s\n", betas)
+	fmt.Printf("\ngammas: %s\n", gammas)
 
 	assert.Equal(t, 8, len(alphas))
 	assert.Equal(t, 8, len(alphas))
 	assert.Equal(t, 8, len(alphas))
-	assert.True(t, !bytes.Equal(alphas[1][1].Bytes(), big.NewInt(int64(0)).Bytes()))
+	assert.True(t, !bytes.Equal(alphas[1][1].Bytes(),
+		big.NewInt(int64(0)).Bytes()))
+
+	fmt.Printf("\nalphas[1][1].Bytes(): %d, int64(0).Bytes: %d\n",
+		alphas[1][1].Bytes(), big.NewInt(int64(0)).Bytes())
 
 	ax, bx, cx, px := Utils.PF.CombinePolynomials(w, alphas, betas, gammas)
 	assert.Equal(t, 7, len(ax))
@@ -72,17 +82,33 @@ func TestGroth16MinimalFlow(t *testing.T) {
 	assert.Equal(t, 7, len(cx))
 	assert.Equal(t, 13, len(px))
 
+	fmt.Printf("\nax: %s\n", ax)
+	fmt.Printf("\nbx: %s\n", bx)
+	fmt.Printf("\ncx: %s\n", cx)
+	fmt.Printf("\npx: %s\n", px)
+
 	// ---
 	// from here is the GROTH16
 	// ---
 	// calculate trusted setup
-	fmt.Println("groth")
+	fmt.Println("\ngroth")
 	setup, err := GenerateTrustedSetup(len(w), *circuit, alphas, betas, gammas)
 	assert.Nil(t, err)
-	fmt.Println("\nt:", setup.Toxic.T)
+
+	fmt.Printf("\nsetup.Toxic: %+v\n", setup.Toxic)
+	fmt.Printf("\nsetup.Pk: %+v\n", setup.Pk)
+	fmt.Printf("\nsetup.Vk: %+v\n", setup.Vk)
+	// fmt.Println("\nt:", setup.Toxic.T)
 
 	hx := Utils.PF.DivisorPolynomial(px, setup.Pk.Z)
 	div, rem := Utils.PF.Div(px, setup.Pk.Z)
+
+	fmt.Printf("\npx: %s\n", px)
+	fmt.Printf("\nPk.Z: %s\n", setup.Pk.Z)
+	fmt.Printf("\nhx: %s\n", hx)
+	fmt.Printf("\ndiv: %s\n", div)
+	fmt.Printf("\nrem: %s\n", rem)
+
 	assert.Equal(t, hx, div)
 	assert.Equal(t, rem, r1csqap.ArrayOfBigZeros(6))
 
@@ -95,16 +121,19 @@ func TestGroth16MinimalFlow(t *testing.T) {
 	proof, err := GenerateProofs(*circuit, setup.Pk, w, px)
 	assert.Nil(t, err)
 
-	// fmt.Println("\n proofs:")
-	// fmt.Println(proof)
+	fmt.Printf("\nproof.PiA: %s\n", proof.PiA)
+	fmt.Printf("\nproofs.PiB: %s\n", proof.PiB)
+	fmt.Printf("\nproofs.PiC: %s\n", proof.PiC)
 
 	// fmt.Println("public signals:", proof.PublicSignals)
 	fmt.Println("\nsignals:", circuit.Signals)
 	fmt.Println("witness:", w)
+
 	b35Verif := big.NewInt(int64(35))
 	publicSignalsVerif := []*big.Int{b35Verif}
 	before := time.Now()
 	assert.True(t, VerifyProof(setup.Vk, proof, publicSignalsVerif, true))
+
 	fmt.Println("verify proof time elapsed:", time.Since(before))
 
 	// check that with another public input the verification returns false

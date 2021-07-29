@@ -30,6 +30,7 @@ type Pk struct { // Proving Key
 	}
 	PowersTauDelta [][3]*big.Int // powers of τ encrypted in G1 curve, divided by δ
 }
+
 type Vk struct {
 	IC [][3]*big.Int
 	G1 struct {
@@ -70,7 +71,8 @@ type utils struct {
 	PF  r1csqap.PolynomialField
 }
 
-// Utils is the data structure holding the BN128, FqR Finite Field over R, PolynomialField, that will be used inside the snarks operations
+// Utils is the data structure holding the BN128, FqR Finite Field over R,
+// PolynomialField, that will be used inside the snarks operations
 var Utils = prepareUtils()
 
 func prepareUtils() utils {
@@ -91,7 +93,9 @@ func prepareUtils() utils {
 }
 
 // GenerateTrustedSetup generates the Trusted Setup from a compiled Circuit. The Setup.Toxic sub data structure must be destroyed
-func GenerateTrustedSetup(witnessLength int, circuit circuitcompiler.Circuit, alphas, betas, gammas [][]*big.Int) (Setup, error) {
+func GenerateTrustedSetup(witnessLength int, circuit circuitcompiler.Circuit,
+	alphas, betas, gammas [][]*big.Int) (Setup, error) {
+
 	var setup Setup
 	var err error
 
@@ -105,14 +109,17 @@ func GenerateTrustedSetup(witnessLength int, circuit circuitcompiler.Circuit, al
 	if err != nil {
 		return Setup{}, err
 	}
+
 	setup.Toxic.Kbeta, err = Utils.FqR.Rand()
 	if err != nil {
 		return Setup{}, err
 	}
+
 	setup.Toxic.Kgamma, err = Utils.FqR.Rand()
 	if err != nil {
 		return Setup{}, err
 	}
+
 	setup.Toxic.Kdelta, err = Utils.FqR.Rand()
 	if err != nil {
 		return Setup{}, err
@@ -140,8 +147,10 @@ func GenerateTrustedSetup(witnessLength int, circuit circuitcompiler.Circuit, al
 	ini := Utils.Bn.G1.MulScalar(Utils.Bn.G1.G, ztinvDelta)
 	ptd = append(ptd, ini)
 	tEncr := setup.Toxic.T
+
 	for i := 1; i < len(zpol); i++ {
-		ptd = append(ptd, Utils.Bn.G1.MulScalar(Utils.Bn.G1.G, Utils.FqR.Mul(tEncr, ztinvDelta)))
+		ptd = append(ptd,
+			Utils.Bn.G1.MulScalar(Utils.Bn.G1.G, Utils.FqR.Mul(tEncr, ztinvDelta)))
 		tEncr = Utils.FqR.Mul(tEncr, setup.Toxic.T)
 	}
 	// powers of τ encrypted in G1 curve, divided by δ
@@ -174,10 +183,13 @@ func GenerateTrustedSetup(witnessLength int, circuit circuitcompiler.Circuit, al
 		setup.Pk.G2.BACGamma = append(setup.Pk.G2.BACGamma, g2bt)
 	}
 
-	zero3 := [3]*big.Int{Utils.Bn.G1.F.Zero(), Utils.Bn.G1.F.Zero(), Utils.Bn.G1.F.Zero()}
+	zero3 := [3]*big.Int{Utils.Bn.G1.F.Zero(), Utils.Bn.G1.F.Zero(),
+		Utils.Bn.G1.F.Zero()}
+
 	for i := 0; i < circuit.NPublic+1; i++ {
 		setup.Pk.BACDelta = append(setup.Pk.BACDelta, zero3)
 	}
+
 	for i := circuit.NPublic + 1; i < circuit.NVars; i++ {
 		// TODO calculate all at, bt, ct outside, to avoid repeating calculations
 		at := Utils.PF.Eval(alphas[i], setup.Toxic.T)
@@ -221,32 +233,45 @@ func GenerateTrustedSetup(witnessLength int, circuit circuitcompiler.Circuit, al
 	return setup, nil
 }
 
-// GenerateProofs generates all the parameters to proof the zkSNARK from the Circuit, Setup and the Witness
-func GenerateProofs(circuit circuitcompiler.Circuit, pk Pk, w []*big.Int, px []*big.Int) (Proof, error) {
+// GenerateProofs generates all the parameters to proof the zkSNARK
+// from the Circuit, Setup and the Witness
+func GenerateProofs(circuit circuitcompiler.Circuit, pk Pk, w []*big.Int,
+	px []*big.Int) (Proof, error) {
+
 	var proof Proof
-	proof.PiA = [3]*big.Int{Utils.Bn.G1.F.Zero(), Utils.Bn.G1.F.Zero(), Utils.Bn.G1.F.Zero()}
+	proof.PiA = [3]*big.Int{Utils.Bn.G1.F.Zero(), Utils.Bn.G1.F.Zero(),
+		Utils.Bn.G1.F.Zero()}
 	proof.PiB = Utils.Bn.Fq6.Zero()
-	proof.PiC = [3]*big.Int{Utils.Bn.G1.F.Zero(), Utils.Bn.G1.F.Zero(), Utils.Bn.G1.F.Zero()}
+	proof.PiC = [3]*big.Int{Utils.Bn.G1.F.Zero(), Utils.Bn.G1.F.Zero(),
+		Utils.Bn.G1.F.Zero()}
 
 	r, err := Utils.FqR.Rand()
+
 	if err != nil {
 		return Proof{}, err
 	}
+
 	s, err := Utils.FqR.Rand()
 	if err != nil {
 		return Proof{}, err
 	}
 
 	// piBG1 will hold all the same than proof.PiB but in G1 curve
-	piBG1 := [3]*big.Int{Utils.Bn.G1.F.Zero(), Utils.Bn.G1.F.Zero(), Utils.Bn.G1.F.Zero()}
+	piBG1 := [3]*big.Int{Utils.Bn.G1.F.Zero(), Utils.Bn.G1.F.Zero(),
+		Utils.Bn.G1.F.Zero()}
 
 	for i := 0; i < circuit.NVars; i++ {
-		proof.PiA = Utils.Bn.G1.Add(proof.PiA, Utils.Bn.G1.MulScalar(pk.G1.At[i], w[i]))
-		piBG1 = Utils.Bn.G1.Add(piBG1, Utils.Bn.G1.MulScalar(pk.G1.BACGamma[i], w[i]))
-		proof.PiB = Utils.Bn.G2.Add(proof.PiB, Utils.Bn.G2.MulScalar(pk.G2.BACGamma[i], w[i]))
+		proof.PiA = Utils.Bn.G1.Add(proof.PiA,
+			Utils.Bn.G1.MulScalar(pk.G1.At[i], w[i]))
+		piBG1 = Utils.Bn.G1.Add(piBG1,
+			Utils.Bn.G1.MulScalar(pk.G1.BACGamma[i], w[i]))
+		proof.PiB = Utils.Bn.G2.Add(proof.PiB,
+			Utils.Bn.G2.MulScalar(pk.G2.BACGamma[i], w[i]))
 	}
+
 	for i := circuit.NPublic + 1; i < circuit.NVars; i++ {
-		proof.PiC = Utils.Bn.G1.Add(proof.PiC, Utils.Bn.G1.MulScalar(pk.BACDelta[i], w[i]))
+		proof.PiC = Utils.Bn.G1.Add(proof.PiC,
+			Utils.Bn.G1.MulScalar(pk.BACDelta[i], w[i]))
 	}
 
 	// piA = (Σ from 0 to m (pk.A * w[i])) + pk.Alpha1 + r * δ
@@ -267,12 +292,15 @@ func GenerateProofs(circuit circuitcompiler.Circuit, pk Pk, w []*big.Int, px []*
 
 	// piC = (Σ from l+1 to m (w[i] * (pk.g1.Beta + pk.g1.Alpha + pk.C)) + h(tau)) / δ) + piA*s + r*piB - r*s*δ
 	for i := 0; i < len(hx); i++ {
-		proof.PiC = Utils.Bn.G1.Add(proof.PiC, Utils.Bn.G1.MulScalar(pk.PowersTauDelta[i], hx[i]))
+		proof.PiC = Utils.Bn.G1.Add(proof.PiC,
+			Utils.Bn.G1.MulScalar(pk.PowersTauDelta[i], hx[i]))
 	}
+
 	proof.PiC = Utils.Bn.G1.Add(proof.PiC, Utils.Bn.G1.MulScalar(proof.PiA, s))
 	proof.PiC = Utils.Bn.G1.Add(proof.PiC, Utils.Bn.G1.MulScalar(piBG1, r))
 	negRS := Utils.FqR.Neg(Utils.FqR.Mul(r, s))
-	proof.PiC = Utils.Bn.G1.Add(proof.PiC, Utils.Bn.G1.MulScalar(pk.G1.Delta, negRS))
+	proof.PiC = Utils.Bn.G1.Add(proof.PiC,
+		Utils.Bn.G1.MulScalar(pk.G1.Delta, negRS))
 
 	return proof, nil
 }
